@@ -5,6 +5,7 @@ version: 2.1
 workflows:
     promote-orb:
         jobs:
+          - orb-tools/pack
           - orb-tools/publish-dev:
               name: publish-dev
               requires:
