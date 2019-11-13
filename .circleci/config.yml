@@ -7,7 +7,9 @@ workflows:
         jobs:
           - orb-tools/publish-dev:
               name: publish-dev
-              orb-path: packed.yml
+              requires:
+                  - orb-tools/pack
+              orb-path: ./src/orb.yml
               orb-name: uraway/hello-world
               validate: true
           - orb-tools/dev-promote-prod:
