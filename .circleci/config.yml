@@ -5,7 +5,14 @@ version: 2.1
 workflows:
     promote-orb:
         jobs:
+          - orb-tools/publish-dev:
+              name: publish-dev
+              orb-path: packed.yml
+              orb-name: uraway/hello-world
+              validate: true
           - orb-tools/dev-promote-prod:
+              requires:
+                  - publish-dev
               filters:
                 branches:
                   ignore: /.*/
@@ -14,6 +21,8 @@ workflows:
               orb-name: uraway/hello-world
               release: patch
           - orb-tools/dev-promote-prod:
+              requires:
+                  - publish-dev
               filters:
                 branches:
                   ignore: /.*/
@@ -22,6 +31,8 @@ workflows:
               orb-name: uraway/hello-world
               release: minor
           - orb-tools/dev-promote-prod:
+              requires:
+                  - publish-dev
               filters:
                 branches:
                   ignore: /.*/
