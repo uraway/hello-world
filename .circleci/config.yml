@@ -5,27 +5,27 @@ version: 2.1
 workflows:
     promote-orb:
         jobs:
-        - orb-tools/dev-promote-prod:
-            filters:
+          - orb-tools/dev-promote-prod:
+              filters:
                 branches:
-                ignore: /.*/
+                  ignore: /.*/
                 tags:
-                only: /master-patch.*/
-            orb-name: uraway/hello-world
-            release: patch
-        - orb-tools/dev-promote-prod:
-            filters:
+                  only: /master-patch.*/
+              orb-name: uraway/hello-world
+              release: patch
+          - orb-tools/dev-promote-prod:
+              filters:
                 branches:
-                ignore: /.*/
+                  ignore: /.*/
                 tags:
-                only: /master-minor.*/
-            orb-name: uraway/hello-world
-            release: minor
-        - orb-tools/dev-promote-prod:
-            filters:
+                  only: /master-minor.*/
+              orb-name: uraway/hello-world
+              release: minor
+          - orb-tools/dev-promote-prod:
+              filters:
                 branches:
-                ignore: /.*/
+                  ignore: /.*/
                 tags:
-                only: /master-major.*/
-            orb-name: uraway/hello-world
-            release: major
+                  only: /master-major.*/
+              orb-name: uraway/hello-world
+              release: major
