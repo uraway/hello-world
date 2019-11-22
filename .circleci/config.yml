@@ -3,54 +3,44 @@ orbs:
 
 version: 2.1
 workflows:
-  publish-dev-orb:
+  promote-orb:
     jobs:
-      - orb-tools/pack:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-.*/
-      - orb-tools/publish-dev:
-          orb-name: uraway/hello-world
-          validate: true
-          requires:
-              - orb-tools/pack
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-.*/
       - orb-tools/dev-promote-prod:
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /master-patch.*/
-          orb-name: uraway/hello-world
+          orb-name: yournamespace/your-orb
           release: patch
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          requires:
-              - orb-tools/publish-dev
       - orb-tools/dev-promote-prod:
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /master-minor.*/
-          orb-name: uraway/hello-world
+          orb-name: yournamespace/your-orb
           release: minor
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          requires:
-              - orb-tools/publish-dev
       - orb-tools/dev-promote-prod:
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /master-major.*/
-          orb-name: uraway/hello-world
+          orb-name: yournamespace/your-orb
           release: major
+  publish-dev:
+    jobs:
+      - orb-tools/pack
+      - orb-tools/publish-dev:
+          requires: [orb-tools/pack]
+          orb-name: yournamespace/your-orb
+          checkout: true
+          validate: true
+      - orb-tools/trigger-integration-workflow:
+          filters:
+            branches:
+              only: master
+          requires: [orb-tools/publish-dev]
+          tag: master
           ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          requires:
-              - orb-tools/publish-dev
