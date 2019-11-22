@@ -5,7 +5,22 @@ version: 2.1
 workflows:
   publish-dev-orb:
     jobs:
-      - orb-tools/pack
+      - orb-tools/pack:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /master-.*/
+      - orb-tools/publish-dev:
+          orb-name: uraway/hello-world
+          validate: true
+          requires:
+              - orb-tools/pack
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /master-.*/
       - orb-tools/dev-promote-prod:
           filters:
             branches:
@@ -14,6 +29,8 @@ workflows:
               only: /master-patch.*/
           orb-name: uraway/hello-world
           release: patch
+          requires:
+              - orb-tools/publish-dev
       - orb-tools/dev-promote-prod:
           filters:
             branches:
@@ -22,6 +39,8 @@ workflows:
               only: /master-minor.*/
           orb-name: uraway/hello-world
           release: minor
+          requires:
+              - orb-tools/publish-dev
       - orb-tools/dev-promote-prod:
           filters:
             branches:
@@ -30,3 +49,5 @@ workflows:
               only: /master-major.*/
           orb-name: uraway/hello-world
           release: major
+          requires:
+              - orb-tools/publish-dev
