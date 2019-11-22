@@ -11,7 +11,7 @@ workflows:
               ignore: /.*/
             tags:
               only: /master-patch.*/
-          orb-name: yournamespace/your-orb
+          orb-name: uraway/hello-world
           release: patch
       - orb-tools/dev-promote-prod:
           filters:
@@ -19,7 +19,7 @@ workflows:
               ignore: /.*/
             tags:
               only: /master-minor.*/
-          orb-name: yournamespace/your-orb
+          orb-name: uraway/hello-world
           release: minor
       - orb-tools/dev-promote-prod:
           filters:
@@ -27,14 +27,14 @@ workflows:
               ignore: /.*/
             tags:
               only: /master-major.*/
-          orb-name: yournamespace/your-orb
+          orb-name: uraway/hello-world
           release: major
   publish-dev:
     jobs:
       - orb-tools/pack
       - orb-tools/publish-dev:
           requires: [orb-tools/pack]
-          orb-name: yournamespace/your-orb
+          orb-name: uraway/hello-world
           checkout: true
           validate: true
       - orb-tools/trigger-integration-workflow:
