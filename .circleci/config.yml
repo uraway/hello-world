@@ -3,50 +3,12 @@ orbs:
 
 version: 2.1
 workflows:
-    promote-orb:
-        jobs:
-          - orb-tools/pack:
-              branches:
-                ignore: /.*/
-              tags:
-                only: /master-patch.*/
-          - orb-tools/publish-dev:
-              name: publish-dev
-              requires:
-                  - orb-tools/pack
-              orb-name: uraway/hello-world
-              validate: true
-              branches:
-                ignore: /.*/
-              tags:
-                only: /master-patch.*/
-          - orb-tools/dev-promote-prod:
-              requires:
-                  - publish-dev
-              filters:
-                branches:
-                  ignore: /.*/
-                tags:
-                  only: /master-patch.*/
-              orb-name: uraway/hello-world
-              release: patch
-          - orb-tools/dev-promote-prod:
-              requires:
-                  - publish-dev
-              filters:
-                branches:
-                  ignore: /.*/
-                tags:
-                  only: /master-minor.*/
-              orb-name: uraway/hello-world
-              release: minor
-          - orb-tools/dev-promote-prod:
-              requires:
-                  - publish-dev
-              filters:
-                branches:
-                  ignore: /.*/
-                tags:
-                  only: /master-major.*/
-              orb-name: uraway/hello-world
-              release: major
+  publish-dev-orb:
+    jobs:
+      - orb-tools/pack
+      - orb-tools/publish-dev:
+          requires:
+              - orb-tools/pack
+          orb-path: ./src/orb.yml
+          orb-name: yournamespace/your-orb
+          validate: true
