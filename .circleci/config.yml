@@ -13,6 +13,7 @@ workflows:
               only: /master-patch.*/
           orb-name: uraway/hello-world
           release: patch
+          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
       - orb-tools/dev-promote-prod:
           filters:
             branches:
@@ -21,6 +22,7 @@ workflows:
               only: /master-minor.*/
           orb-name: uraway/hello-world
           release: minor
+          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
       - orb-tools/dev-promote-prod:
           filters:
             branches:
@@ -29,6 +31,7 @@ workflows:
               only: /master-major.*/
           orb-name: uraway/hello-world
           release: major
+          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
   publish-dev:
     jobs:
       - orb-tools/pack
