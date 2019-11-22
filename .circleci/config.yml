@@ -9,6 +9,5 @@ workflows:
       - orb-tools/publish-dev:
           requires:
               - orb-tools/pack
-          orb-path: ./src/orb.yml
-          orb-name: yournamespace/your-orb
+          orb-name: uraway/hello-world
           validate: true
