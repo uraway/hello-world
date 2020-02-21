@@ -110,21 +110,24 @@ workflows:
       - dev-promote-prod:
           requires: [integration-test-for-orb]
           filters:
-            <<: *default_filters
+            branches:
+              ignore: /.*/
             tags:
               only: /patch.*/
           release: patch
       - dev-promote-prod:
           requires: [integration-test-for-orb]
           filters:
-            <<: *default_filters
+            branches:
+              ignore: /.*/
             tags:
               only: /minor.*/
           release: minor
       - dev-promote-prod:
           requires: [integration-test-for-orb]
           filters:
-            <<: *default_filters
+            branches:
+              ignore: /.*/
             tags:
               only: /major.*/
           release: major
