@@ -1,8 +1,6 @@
-default_filters: &default_filters
-  branches:
-    only: /.*/
-  tags:
-    only: /.*/
+orbs:
+  cli: circleci/circleci-cli@0.1.7
+  hello-world: sample-orbs/hello-world@<< pipeline.parameters.dev-orb-version >>
 
 version: 2.1
 
@@ -14,10 +12,6 @@ parameters:
     type: boolean
     default: false
 
-orbs:
-  cli: circleci/circleci-cli@0.1.5
-  hello-world: uraway/hello-world@<< pipeline.parameters.dev-orb-version >>
-
 jobs:
   validation:
     executor: cli/default
@@ -27,46 +21,6 @@ jobs:
       - run:
           name: バリデーション
           command: circleci orb validate ./src/orb.yml
-
-  expansion:
-    executor: cli/default
-    steps:
-      - cli/install
-      - checkout
-      - run:
-          name: Install yq
-          command: |
-            sudo apt update && \
-            sudo apt-get install jq python-pip python-dev && \
-            sudo pip install yq
-      - run:
-          name: 展開テスト
-          command: |
-            result=$(circleci config process .circleci/test.yml | yq '.jobs."hello-world/echo-job".steps[0].run.command')
-            echo ${result} | grep "Hello, CircleCI"
-
-  execution:
-    machine: true
-    steps:
-      - cli/install
-      - checkout
-      - run:
-          name: 展開
-          command: circleci config process .circleci/test.yml > .circleci/2.0.yml
-      - run:
-          name: ランタイムテスト
-          command: circleci local execute --config .circleci/2.0.yml --job hello-world/echo-job | tee local_build_output.txt /dev/stderr | tail -n 1 | grep "Success"
-
-  publish-dev:
-    executor: cli/default
-    steps:
-      - cli/install
-      - checkout
-      - run:
-          name: devバージョンを公開
-          command: |
-            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
-            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
 
   dev-promote-prod:
     parameters:
@@ -81,13 +35,22 @@ jobs:
       - checkout
       - run:
           name: dev:${CIRCLE_SHA1:0:7}を本番用Orbsへプロモートする
-          command: circleci orb publish promote uraway/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
+          command: circleci orb publish promote sample-orbs/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
 
   integration-test-for-orb:
     executor: hello-world/default
     steps:
       - hello-world/echo-command
 
+  publish-dev-orb:
+    executor: cli/default
+    steps:
+      - checkout
+      - run:
+          name: devバージョンを公開
+          command: |
+            circleci orb publish src/orb.yml sample-orbs/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml sample-orbs/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
   trigger-integration-test-workflow:
     executor: cli/default
     steps:
@@ -105,10 +68,21 @@ workflows:
   integration-test:
     when: << pipeline.parameters.run-integration-tests >>
     jobs:
-      - integration-test-for-orb:
-          filters: *default_filters
+      - integration-test-for-orb
+  publish-dev:
+    unless: << pipeline.parameters.run-integration-tests >>
+    jobs:
+      - validation
+      - publish-dev-orb:
+          requires:
+            - validation
+      - trigger-integration-test-workflow:
+          requires:
+            - publish-dev-orb
+  promote-orb:
+    unless: << pipeline.parameters.run-integration-tests >>
+    jobs:
       - dev-promote-prod:
-          requires: [integration-test-for-orb]
           filters:
             branches:
               ignore: /.*/
@@ -116,7 +90,6 @@ workflows:
               only: /patch.*/
           release: patch
       - dev-promote-prod:
-          requires: [integration-test-for-orb]
           filters:
             branches:
               ignore: /.*/
@@ -124,29 +97,9 @@ workflows:
               only: /minor.*/
           release: minor
       - dev-promote-prod:
-          requires: [integration-test-for-orb]
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /major.*/
           release: major
-  validate_expansion_execution_publish-dev:
-    unless: << pipeline.parameters.run-integration-tests >>
-    jobs:
-      - validation:
-          filters: *default_filters
-      - publish-dev:
-          requires: [validation]
-          filters: *default_filters
-      -  trigger-integration-test-workflow:
-          requires: [publish-dev]
-          filters: *default_filters
-      # - expansion:
-      #     requires: [publish-dev]
-      #     filters:
-      #       *default_filters
-      # - execution:
-      #     requires: [publish-dev]
-      #     filters:
-      #       *default_filters
