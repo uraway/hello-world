@@ -16,6 +16,7 @@ parameters:
 
 orbs:
   cli: circleci/circleci-cli@0.1.5
+  hello-world: uraway/hello-world@<< pipeline.parameters.dev-orb-version >>
 
 jobs:
   validation:
@@ -63,7 +64,7 @@ jobs:
       - checkout
       - run:
           name: dev:alphaを公開
-          command: circleci orb publish src/orb.yml sample-orbs/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+          command: circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
 
   dev-promote-prod:
     parameters:
@@ -78,7 +79,7 @@ jobs:
       - checkout
       - run:
           name: dev:alphaを本番用Orbsへプロモートする
-          command: circleci orb publish promote sample-orbs/hello-world@dev:alpha << parameters.release >> --token ${CIRCLE_TOKEN}
+          command: circleci orb publish promote uraway/hello-world@dev:alpha << parameters.release >> --token ${CIRCLE_TOKEN}
 
   integration-test-for-orb:
     executor: hello-world/default
