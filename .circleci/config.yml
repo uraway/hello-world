@@ -1,3 +1,9 @@
+default_filters: &default_filters
+  branches:
+    only: /.*/
+  tags:
+    only: /.*/
+
 version: 2.1
 
 parameters:
@@ -100,43 +106,39 @@ workflows:
     when: << pipeline.parameters.run-integration-tests >>
     jobs:
       - integration-test-for-orb:
-          filters:
-            branches:
-              only: /.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
       - dev-promote-prod:
           requires: [integration-test-for-orb]
           filters:
-            branches:
-              ignore: /.*/
+            <<: *default_filters
             tags:
               only: /patch.*/
           release: patch
       - dev-promote-prod:
           requires: [integration-test-for-orb]
           filters:
-            branches:
-              ignore: /.*/
+            <<: *default_filters
             tags:
               only: /minor.*/
           release: minor
       - dev-promote-prod:
           requires: [integration-test-for-orb]
           filters:
-            branches:
-              ignore: /.*/
+            <<: *default_filters
             tags:
               only: /major.*/
           release: major
   validate_expansion_execution_publish-dev:
     unless: << pipeline.parameters.run-integration-tests >>
     jobs:
-      - validation
+      - validation:
+          filters: *default_filters
       - publish-dev:
           requires: [validation]
+          filters: *default_filters
       -  trigger-integration-test-workflow:
-           requires: [publish-dev]
+          requires: [publish-dev]
+          filters: *default_filters
       # - expansion:
       #     requires: [publish-dev]
       #     filters:
