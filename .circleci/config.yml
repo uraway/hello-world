@@ -37,8 +37,7 @@ jobs:
             curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
               \"branch\": \"${CIRCLE_BRANCH}\",
               \"parameters\": {\"run-integration-tests\": true, \"dev-orb-version\":\"dev:${CIRCLE_SHA1:0:7}\"}
-            }"
-            "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
 
 workflows:
   integration-test:
