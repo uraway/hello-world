@@ -1,49 +1,54 @@
 orbs:
-  orb-tools: circleci/orb-tools@8.27.4
+  cli: circleci/circleci-cli@0.1.7
+  hello-world: uraway/hello-world@<<pipeline.parameters.dev-orb-version>>
 
 version: 2.1
+
+parameters:
+  dev-orb-version:
+    default: 'dev:alpha'
+    type: string
+  run-integration-tests:
+    type: boolean
+    default: false
+
+jobs:
+  integration-test-for-orb:
+    executor: cli/default
+    steps:
+      - hello-world/echo-command
+  publish-dev-orb:
+    executor: cli/default
+    steps:
+      - checkout
+      - run:
+          name: Publish dev
+          command: |
+            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
+  trigger-integration-test-workflow:
+    executor: cli/default
+    steps:
+      - run:
+          name: Trigger integration test workflow
+          command: |
+            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
+
+            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+              \"branch\": \"${CIRCLE_BRANCH}\",
+              \"parameters\": {\"run-integration-tests\": true, \"dev-orb-version\":\"dev:${CIRCLE_SHA1:0:7}\"}
+            }"
+            "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+
 workflows:
-  promote-orb:
+  integration-test:
+    when: << pipeline.parameters.run-integration-tests >>
     jobs:
-      - orb-tools/dev-promote-prod:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-patch.*/
-          orb-name: uraway/hello-world
-          release: patch
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-      - orb-tools/dev-promote-prod:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-minor.*/
-          orb-name: uraway/hello-world
-          release: minor
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-      - orb-tools/dev-promote-prod:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-major.*/
-          orb-name: uraway/hello-world
-          release: major
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
+      - integration-test-for-orb
   publish-dev:
+    unless: << pipeline.parameters.run-integration-tests >>
     jobs:
-      - orb-tools/pack
-      - orb-tools/publish-dev:
-          requires: [orb-tools/pack]
-          orb-name: uraway/hello-world
-          checkout: true
-          validate: true
-      - orb-tools/trigger-integration-workflow:
-          filters:
-            branches:
-              only: master
-          requires: [orb-tools/publish-dev]
-          tag: master
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
+      - publish-dev-orb
+      - trigger-integration-test-workflow:
+          requires:
+            - publish-dev-orb
