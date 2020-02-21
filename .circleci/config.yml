@@ -1,49 +1,147 @@
-orbs:
-  orb-tools: circleci/orb-tools@8.27.4
-
 version: 2.1
-workflows:
-  promote-orb:
-    jobs:
-      - orb-tools/dev-promote-prod:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-patch.*/
-          orb-name: uraway/hello-world
-          release: patch
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-      - orb-tools/dev-promote-prod:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-minor.*/
-          orb-name: uraway/hello-world
-          release: minor
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-      - orb-tools/dev-promote-prod:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /master-major.*/
-          orb-name: uraway/hello-world
-          release: major
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
+
+parameters:
+  dev-orb-version:
+    default: 'dev:alpha'
+    type: string
+  run-integration-tests:
+    type: boolean
+    default: false
+
+orbs:
+  cli: circleci/circleci-cli@0.1.5
+  hello-world: uraway/hello-world@<< pipeline.parameters.dev-orb-version >>
+
+jobs:
+  validation:
+    executor: cli/default
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: バリデーション
+          command: circleci orb validate ./src/orb.yml
+
+  expansion:
+    executor: cli/default
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: Install yq
+          command: |
+            sudo apt update && \
+            sudo apt-get install jq python-pip python-dev && \
+            sudo pip install yq
+      - run:
+          name: 展開テスト
+          command: |
+            result=$(circleci config process .circleci/test.yml | yq '.jobs."hello-world/echo-job".steps[0].run.command')
+            echo ${result} | grep "Hello, CircleCI"
+
+  execution:
+    machine: true
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: 展開
+          command: circleci config process .circleci/test.yml > .circleci/2.0.yml
+      - run:
+          name: ランタイムテスト
+          command: circleci local execute --config .circleci/2.0.yml --job hello-world/echo-job | tee local_build_output.txt /dev/stderr | tail -n 1 | grep "Success"
+
   publish-dev:
+    executor: cli/default
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: devバージョンを公開
+          command: |
+            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
+
+  dev-promote-prod:
+    parameters:
+      release:
+        type: enum
+        enum: [patch, minor, major]
+        default: patch
+        description: circleci orb publish promoteコマンドの引数
+    executor: cli/default
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: dev:${CIRCLE_SHA1:0:7}を本番用Orbsへプロモートする
+          command: circleci orb publish promote uraway/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
+
+  integration-test-for-orb:
+    executor: hello-world/default
+    steps:
+      - hello-world/echo-command
+
+  trigger-integration-test-workflow:
+    executor: cli/default
+    steps:
+      - run:
+          name: integration-testワークフローをトリガーする
+          command: |
+            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
+
+            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+              \"branch\": \"${CIRCLE_BRANCH}\",
+              \"parameters\": {\"run-integration-tests\": true, \"dev-orb-version\":\"dev:${CIRCLE_SHA1:0:7}\"}
+            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
+
+workflows:
+  integration-test:
+    when: << pipeline.parameters.run-integration-tests >>
     jobs:
-      - orb-tools/pack
-      - orb-tools/publish-dev:
-          requires: [orb-tools/pack]
-          orb-name: uraway/hello-world
-          checkout: true
-          validate: true
-      - orb-tools/trigger-integration-workflow:
+      - integration-test-for-orb:
           filters:
             branches:
-              only: master
-          requires: [orb-tools/publish-dev]
-          tag: master
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
+              only: /.*/
+            tags:
+              only: /.*/
+      - dev-promote-prod:
+          requires: [integration-test-for-orb]
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /patch.*/
+          release: patch
+      - dev-promote-prod:
+          requires: [integration-test-for-orb]
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /minor.*/
+          release: minor
+      - dev-promote-prod:
+          requires: [integration-test-for-orb]
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /major.*/
+          release: major
+  validate_expansion_execution_publish-dev:
+    unless: << pipeline.parameters.run-integration-tests >>
+    jobs:
+      - validation
+      - publish-dev:
+          requires: [validation]
+      -  trigger-integration-test-workflow:
+           requires: [publish-dev]
+      # - expansion:
+      #     requires: [publish-dev]
+      #     filters:
+      #       *default_filters
+      # - execution:
+      #     requires: [publish-dev]
+      #     filters:
+      #       *default_filters
