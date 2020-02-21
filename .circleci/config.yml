@@ -83,6 +83,7 @@ workflows:
     unless: << pipeline.parameters.run-integration-tests >>
     jobs:
       - dev-promote-prod:
+          name: patch_promote
           filters:
             branches:
               ignore: /.*/
@@ -90,6 +91,7 @@ workflows:
               only: /patch.*/
           release: patch
       - dev-promote-prod:
+          name: minor_promote
           filters:
             branches:
               ignore: /.*/
@@ -97,6 +99,7 @@ workflows:
               only: /minor.*/
           release: minor
       - dev-promote-prod:
+          name: major_promote
           filters:
             branches:
               ignore: /.*/
