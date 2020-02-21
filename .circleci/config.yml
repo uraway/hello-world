@@ -63,8 +63,10 @@ jobs:
       - cli/install
       - checkout
       - run:
-          name: dev:alphaを公開
-          command: circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+          name: devバージョンを公開
+          command: |
+            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
 
   dev-promote-prod:
     parameters:
@@ -78,8 +80,8 @@ jobs:
       - cli/install
       - checkout
       - run:
-          name: dev:alphaを本番用Orbsへプロモートする
-          command: circleci orb publish promote uraway/hello-world@dev:alpha << parameters.release >> --token ${CIRCLE_TOKEN}
+          name: dev:${CIRCLE_SHA1:0:7}を本番用Orbsへプロモートする
+          command: circleci orb publish promote uraway/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
 
   integration-test-for-orb:
     executor: hello-world/default
