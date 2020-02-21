@@ -1,6 +1,6 @@
 orbs:
   cli: circleci/circleci-cli@0.1.7
-  hello-world: sample-orbs/hello-world@<< pipeline.parameters.dev-orb-version >>
+  hello-world: uraway/hello-world@<< pipeline.parameters.dev-orb-version >>
 
 version: 2.1
 
@@ -35,7 +35,7 @@ jobs:
       - checkout
       - run:
           name: dev:${CIRCLE_SHA1:0:7}を本番用Orbsへプロモートする
-          command: circleci orb publish promote sample-orbs/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
+          command: circleci orb publish promote uraway/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
 
   integration-test-for-orb:
     executor: hello-world/default
@@ -49,8 +49,8 @@ jobs:
       - run:
           name: devバージョンを公開
           command: |
-            circleci orb publish src/orb.yml sample-orbs/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
-            circleci orb publish src/orb.yml sample-orbs/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
   trigger-integration-test-workflow:
     executor: cli/default
     steps:
@@ -83,6 +83,7 @@ workflows:
     unless: << pipeline.parameters.run-integration-tests >>
     jobs:
       - dev-promote-prod:
+          name: patch_promote
           filters:
             branches:
               ignore: /.*/
@@ -90,6 +91,7 @@ workflows:
               only: /patch.*/
           release: patch
       - dev-promote-prod:
+          name: minor_promote
           filters:
             branches:
               ignore: /.*/
@@ -97,6 +99,7 @@ workflows:
               only: /minor.*/
           release: minor
       - dev-promote-prod:
+          name: major_promote
           filters:
             branches:
               ignore: /.*/
