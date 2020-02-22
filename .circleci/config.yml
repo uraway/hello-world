@@ -1,108 +1,52 @@
 orbs:
-  cli: circleci/circleci-cli@0.1.7
-  hello-world: uraway/hello-world@<< pipeline.parameters.dev-orb-version >>
+  orb-tools: circleci/orb-tools@9.0.0
+  hello-world: uraway/hello-world@<<pipeline.parameters.dev-orb-version>>
 
-version: 2.1
-
-parameters:
+parameters: # パイプラインパラメータ
   dev-orb-version:
     default: 'dev:alpha'
     type: string
   run-integration-tests:
-    type: boolean
     default: false
+    type: boolean
 
 jobs:
-  validation:
-    executor: cli/default
-    steps:
-      - cli/install
-      - checkout
-      - run:
-          name: バリデーション
-          command: circleci orb validate ./src/orb.yml
-
-  dev-promote-prod:
-    parameters:
-      release:
-        type: enum
-        enum: [patch, minor, major]
-        default: patch
-        description: circleci orb publish promoteコマンドの引数
-    executor: cli/default
-    steps:
-      - cli/install
-      - checkout
-      - run:
-          name: dev:${CIRCLE_SHA1:0:7}を本番用Orbsへプロモートする
-          command: circleci orb publish promote uraway/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
-
-  integration-test-for-orb:
+  integration-tests: # インテグレーションテストジョブ
     executor: hello-world/default
     steps:
+      - checkout
       - hello-world/echo-command
 
-  publish-dev-orb:
-    executor: cli/default
-    steps:
-      - checkout
-      - run:
-          name: devバージョンを公開
-          command: |
-            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
-            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
-  trigger-integration-test-workflow:
-    executor: cli/default
-    steps:
-      - run:
-          name: integration-testワークフローをトリガーする
-          command: |
-            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
-
-            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
-              \"branch\": \"${CIRCLE_BRANCH}\",
-              \"parameters\": {\"run-integration-tests\": true, \"dev-orb-version\":\"dev:${CIRCLE_SHA1:0:7}\"}
-            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
-
+version: 2.1
 workflows:
-  integration-test:
-    when: << pipeline.parameters.run-integration-tests >>
+  integration-tests_prod-release: # インテグレーションテストとOrbをプロモートするワークフロー
+    when: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがtrueであれば実行する
     jobs:
-      - integration-test-for-orb
-  publish-dev:
-    unless: << pipeline.parameters.run-integration-tests >>
-    jobs:
-      - validation
-      - publish-dev-orb:
+      - integration-tests
+      - orb-tools/dev-promote-prod-from-commit-subject:
+          add-pr-comment: true
+          bot-user: uraway
+          fail-if-semver-not-indicated: true
+          publish-version-tag: true
+          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
+          orb-name: uraway/hello-world
           requires:
-            - validation
-      - trigger-integration-test-workflow:
-          requires:
-            - publish-dev-orb
-  promote-orb:
-    unless: << pipeline.parameters.run-integration-tests >>
+            - integration-tests
+          filters:
+            branches:
+              only: master
+  lint_pack-validate_publish-dev:
+    unless: << pipeline.parameters.run-integration-tests >>  # パイプラインパラメータrun-integration-testsがtrueであれば実行する
     jobs:
-      - dev-promote-prod:
-          name: patch_promote
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /patch.*/
-          release: patch
-      - dev-promote-prod:
-          name: minor_promote
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /minor.*/
-          release: minor
-      - dev-promote-prod:
-          name: major_promote
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /major.*/
-          release: major
+      - orb-tools/lint # Orbのリントジョブ
+      - orb-tools/pack:
+          requires:
+            - orb-tools/lint
+      - orb-tools/publish-dev:
+          orb-name: uraway/hello-world
+          requires:
+            - orb-tools/pack
+      - orb-tools/trigger-integration-tests-workflow: # integration-tests_prod-releaseワークフローをトリガーするためのジョブ
+          name: trigger-integration-dev
+          requires:
+            - orb-tools/publish-dev
