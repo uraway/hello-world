@@ -1,6 +1,6 @@
 orbs:
   orb-tools: circleci/orb-tools@9.0.0
-  hello-world: uraway/hello-world@<<pipeline.parameters.dev-orb-version>>
+  hello-world: sample-orbs/hello-world@<<pipeline.parameters.dev-orb-version>>
 
 parameters: # パイプラインパラメータ
   dev-orb-version:
@@ -20,33 +20,34 @@ jobs:
 version: 2.1
 workflows:
   integration-tests_prod-release: # インテグレーションテストとOrbをプロモートするワークフロー
-    when: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがtrueであれば実行する
+    when: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがtrueであれば実行しない
     jobs:
       - integration-tests
       - orb-tools/dev-promote-prod-from-commit-subject:
-          add-pr-comment: true
-          bot-user: uraway
           fail-if-semver-not-indicated: true
+          add-pr-comment: true
+          bot-user: <botユーザー>
+          bot-token-variable: PR_COMMENTER_GITHUB_TOKEN
           publish-version-tag: true
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          orb-name: uraway/hello-world
+          ssh-fingerprints: <フィンガープリント>
+          orb-name: sample-orbs/hello-world
           requires:
             - integration-tests
           filters:
             branches:
               only: master
   lint_pack-validate_publish-dev:
-    unless: << pipeline.parameters.run-integration-tests >>  # パイプラインパラメータrun-integration-testsがtrueであれば実行する
+    unless: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがfalseであれば実行しない
     jobs:
-      - orb-tools/lint # Orbのリントジョブ
+      - orb-tools/lint # Orbの静的解析
       - orb-tools/pack:
           requires:
             - orb-tools/lint
       - orb-tools/publish-dev:
-          orb-name: uraway/hello-world
+          orb-name: sample-orbs/hello-world
           requires:
             - orb-tools/pack
-      - orb-tools/trigger-integration-tests-workflow: # integration-tests_prod-releaseワークフローをトリガーするためのジョブ
+      - orb-tools/trigger-integration-tests-workflow: # integration-tests_prod-releaseワークフローをトリガするためのジョブ
           name: trigger-integration-dev
           requires:
             - orb-tools/publish-dev
