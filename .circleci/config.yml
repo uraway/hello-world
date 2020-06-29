@@ -7,7 +7,7 @@ workflows:
     jobs:
       - orb-tools/publish-dev:
           orb-path: ./src/orb.yml
-          orb-name: sample-orbs/hello-world
+          orb-name: uraway/hello-world
           validate: true
           checkout: true
       - orb-tools/dev-promote-prod-from-commit-subject:
@@ -18,3 +18,8 @@ workflows:
           publish-version-tag: true
           ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
           orb-name: uraway/hello-world
+          requires:
+            - orb-tools/publish-dev
+          filters:
+            branches:
+              only: master
