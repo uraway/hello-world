@@ -6,6 +6,7 @@ workflows:
   publish-dev-orb:
     jobs:
       - orb-tools/publish-dev:
+          checkout: true
           orb-path: ./src/orb.yml
           orb-name: uraway/hello-world
           validate: true
