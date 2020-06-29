@@ -29,7 +29,7 @@ workflows:
           bot-user: <botユーザー>
           bot-token-variable: PR_COMMENTER_GITHUB_TOKEN
           publish-version-tag: true
-          ssh-fingerprints: <フィンガープリント>
+          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
           orb-name: sample-orbs/hello-world
           requires:
             - integration-tests
