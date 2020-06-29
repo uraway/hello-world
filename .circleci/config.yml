@@ -3,23 +3,8 @@ orbs:
 
 version: 2.1
 workflows:
-  promote-orb:
+  pack-orb:
     jobs:
-      - orb-tools/publish-dev:
-          orb-path: ./src/orb.yml
-          orb-name: uraway/hello-world
-          validate: true
-          checkout: true
-      - orb-tools/dev-promote-prod-from-commit-subject:
-          fail-if-semver-not-indicated: true
-          add-pr-comment: true
-          bot-user: <botユーザー>
-          bot-token-variable: PR_COMMENTER_GITHUB_TOKEN
-          publish-version-tag: true
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          orb-name: uraway/hello-world
-          requires:
-            - orb-tools/publish-dev
-          filters:
-            branches:
-              only: master
+      - orb-tools/pack:
+          source-dir: src
+          destination-orb-path: orb.yml
