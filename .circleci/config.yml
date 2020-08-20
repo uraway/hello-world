@@ -1,15 +1,28 @@
 orbs:
-  orb-tools: circleci/orb-tools@9.1.0
+  orb-tools: circleci/orb-tools@9.3.1
+  hello-world: uraway/hello-world@<<pipeline.parameters.dev-orb-version>>
+
+parameters: # パイプラインパラメータ
+  dev-orb-version:
+    default: 'dev:alpha'
+    type: string
+  run-integration-tests:
+    default: false
+    type: boolean
+
+jobs:
+  integration-tests: # インテグレーションテストジョブ
+    executor: hello-world/default
+    steps:
+      - checkout
+      - hello-world/echo-command
 
 version: 2.1
 workflows:
-  promote-orb:
+  integration-tests_prod-release: # インテグレーションテストとOrbをプロモートするワークフロー
+    when: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがtrueであれば実行しない
     jobs:
-      - orb-tools/publish-dev:
-          orb-path: ./src/orb.yml
-          orb-name: uraway/hello-world
-          validate: true
-          checkout: true
+      - integration-tests
       - orb-tools/dev-promote-prod-from-commit-subject:
           fail-if-semver-not-indicated: true
           add-pr-comment: true
@@ -19,7 +32,22 @@ workflows:
           ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
           orb-name: uraway/hello-world
           requires:
-            - orb-tools/publish-dev
+            - integration-tests
           filters:
             branches:
               only: master
+  lint_pack-validate_publish-dev:
+    unless: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがfalseであれば実行しない
+    jobs:
+      - orb-tools/lint # Orbの静的解析
+      - orb-tools/pack:
+          requires:
+            - orb-tools/lint
+      - orb-tools/publish-dev:
+          orb-name: uraway/hello-world
+          requires:
+            - orb-tools/pack
+      - orb-tools/trigger-integration-tests-workflow: # integration-tests_prod-releaseワークフローをトリガするためのジョブ
+          name: trigger-integration-dev
+          requires:
+            - orb-tools/publish-dev
