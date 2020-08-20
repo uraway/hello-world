@@ -1,25 +1,36 @@
 orbs:
-  orb-tools: circleci/orb-tools@9.1.0
+  orb-tools: circleci/orb-tools@9.3.1
+  hello-world: uraway/hello-world@<<pipeline.parameters.dev-orb-version>>
+
+parameters:
+  dev-orb-version:
+    default: 'dev:alpha'
+    type: string
+  run-integration-tests:
+    default: false
+    type: boolean
+
+jobs:
+  integration-tests:
+    executor: hello-world/default
+    steps:
+      - checkout
+      - hello-world/echo-command
 
 version: 2.1
 workflows:
-  promote-orb:
+  integration-tests:
+    when: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがtrueでなければ実行しない
     jobs:
+      - integration-tests
+  trigger-integration-tests-workflow:
+    unless: << pipeline.parameters.run-integration-tests >> # パイプラインパラメータrun-integration-testsがtrueであれば実行しない
+    jobs:
+      - orb-tools/pack
       - orb-tools/publish-dev:
-          orb-path: ./src/orb.yml
-          orb-name: uraway/hello-world
-          validate: true
-          checkout: true
-      - orb-tools/dev-promote-prod-from-commit-subject:
-          fail-if-semver-not-indicated: true
-          add-pr-comment: true
-          bot-user: <botユーザー>
-          bot-token-variable: PR_COMMENTER_GITHUB_TOKEN
-          publish-version-tag: true
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
           orb-name: uraway/hello-world
           requires:
+            - orb-tools/pack
+      - orb-tools/trigger-integration-tests-workflow:
+          requires:
             - orb-tools/publish-dev
-          filters:
-            branches:
-              only: master
