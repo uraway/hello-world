@@ -1,25 +1,103 @@
 orbs:
-  orb-tools: circleci/orb-tools@9.1.0
+  cli: circleci/circleci-cli@0.1.7
+  hello-world: uraway/hello-world@<< pipeline.parameters.dev-orb-version >>
 
 version: 2.1
+
+parameters:
+  dev-orb-version:
+    default: 'dev:alpha'
+    type: string
+  run-integration-tests:
+    type: boolean
+    default: false
+
+jobs:
+  validation:
+    executor: cli/default
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: バリデーション
+          command: circleci orb validate ./src/orb.yml
+
+  dev-promote-prod:
+    parameters:
+      release:
+        type: enum
+        enum: [patch, minor, major]
+        default: patch
+        description: circleci orb publish promoteコマンドの引数
+    executor: cli/default
+    steps:
+      - cli/install
+      - checkout
+      - run:
+          name: dev:${CIRCLE_SHA1:0:7}を本番用Orbsへプロモートする
+          command: circleci orb publish promote uraway/hello-world@dev:${CIRCLE_SHA1:0:7} << parameters.release >> --token ${CIRCLE_TOKEN}
+
+  integration-test-for-orb:
+    executor: hello-world/default
+    steps:
+      - hello-world/echo-command
+
+  publish-dev-orb:
+    executor: cli/default
+    steps:
+      - checkout
+      - run:
+          name: devバージョンを公開
+          command: |
+            circleci orb publish src/orb.yml uraway/hello-world@dev:alpha --token ${CIRCLE_TOKEN}
+            circleci orb publish src/orb.yml uraway/hello-world@dev:${CIRCLE_SHA1:0:7} --token ${CIRCLE_TOKEN}
+  trigger-integration-test-workflow:
+    executor: cli/default
+    steps:
+      - run:
+          name: integration-testワークフローをトリガーする
+          command: |
+            VCS_TYPE=$(echo ${CIRCLE_BUILD_URL} | cut -d '/' -f 4)
+            curl -u ${CIRCLE_TOKEN}: -X POST --header "Content-Type: application/json" -d "{
+              \"branch\": \"${CIRCLE_BRANCH}\",
+              \"parameters\": {\"run-integration-tests\": true, \"dev-orb-version\":\"dev:${CIRCLE_SHA1:0:7}\"}
+            }" "https://circleci.com/api/v2/project/${VCS_TYPE}/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pipeline"
 workflows:
-  promote-orb:
+  integration-test:
+    when: << pipeline.parameters.run-integration-tests >>
     jobs:
-      - orb-tools/publish-dev:
-          orb-path: ./src/orb.yml
-          orb-name: uraway/hello-world
-          validate: true
-          checkout: true
-      - orb-tools/dev-promote-prod-from-commit-subject:
-          fail-if-semver-not-indicated: true
-          add-pr-comment: true
-          bot-user: <botユーザー>
-          bot-token-variable: PR_COMMENTER_GITHUB_TOKEN
-          publish-version-tag: true
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          orb-name: uraway/hello-world
+      - integration-test-for-orb
+  publish-dev:
+    unless: << pipeline.parameters.run-integration-tests >>
+    jobs:
+      - validation
+      - publish-dev-orb:
           requires:
-            - orb-tools/publish-dev
+            - validation
+      - trigger-integration-test-workflow:
+          requires:
+            - publish-dev-orb
+  promote-orb:
+    unless: << pipeline.parameters.run-integration-tests >>
+    jobs:
+      - dev-promote-prod:
           filters:
             branches:
-              only: master
+              ignore: /.*/
+            tags:
+              only: /patch.*/
+          release: patch
+      - dev-promote-prod:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /minor.*/
+          release: minor
+      - dev-promote-prod:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /major.*/
+          release: major
