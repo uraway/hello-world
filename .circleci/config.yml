@@ -1,25 +1,22 @@
-orbs:
-  orb-tools: circleci/orb-tools@9.1.0
-
 version: 2.1
+
+orbs:
+  cli: circleci/circleci-cli@0.1.5
+
+jobs:
+    execution:
+      machine: true
+      steps:
+        - cli/install
+        - checkout
+        - run:
+            name: 展開
+            command: circleci config process .circleci/test.yml > .circleci/2.0.yml
+        - run:
+            name: ランタイムテスト
+            command: circleci local execute --config .circleci/2.0.yml --job hello-world/echo-job | tee local_build_output.txt /dev/stderr | tail -n 1 | grep "Success"
+
 workflows:
-  promote-orb:
+  main:
     jobs:
-      - orb-tools/publish-dev:
-          orb-path: ./src/orb.yml
-          orb-name: uraway/hello-world
-          validate: true
-          checkout: true
-      - orb-tools/dev-promote-prod-from-commit-subject:
-          fail-if-semver-not-indicated: true
-          add-pr-comment: true
-          bot-user: <botユーザー>
-          bot-token-variable: PR_COMMENTER_GITHUB_TOKEN
-          publish-version-tag: true
-          ssh-fingerprints: 22:48:71:91:33:11:12:ab:f7:81:0f:1d:36:5a:44:34
-          orb-name: uraway/hello-world
-          requires:
-            - orb-tools/publish-dev
-          filters:
-            branches:
-              only: master
+      - execution
